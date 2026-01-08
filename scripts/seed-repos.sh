@@ -58,6 +58,10 @@ while IFS=$'\t' read -r name url branch; do
     fi
     continue
   fi
+  if [ "$origin_url" != "$url" ]; then
+    git -C "$dest" -c safe.directory="$dest" remote set-url origin "$url"
+    origin_url="$url"
+  fi
   if [ -n "${auth_header}" ] && [[ "$origin_url" == https://github.com/* ]]; then
     git -C "$dest" -c safe.directory="$dest" -c http.extraheader="$auth_header" fetch --all --prune
   else
