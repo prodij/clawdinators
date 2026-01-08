@@ -446,8 +446,8 @@ in
         WorkingDirectory = cfg.stateDir;
         EnvironmentFile = lib.optional cfg.githubApp.enable "-${cfg.githubApp.tokenEnvFile}";
         ExecStartPre = [
-          "${../../scripts/seed-repos.sh} ${repoSeedsFile} ${repoSeedBaseDir}"
-          "${../../scripts/seed-workspace.sh} ${cfg.workspaceTemplateDir} ${workspaceDir}"
+          "${pkgs.bash}/bin/bash ${../../scripts/seed-repos.sh} ${repoSeedsFile} ${repoSeedBaseDir}"
+          "${pkgs.bash}/bin/bash ${../../scripts/seed-workspace.sh} ${cfg.workspaceTemplateDir} ${workspaceDir}"
         ];
         ExecStart =
           if tokenWrapper != null
