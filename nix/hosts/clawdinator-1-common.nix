@@ -111,7 +111,7 @@ in
         skills.allowBundled = [ "github" "clawdhub" ];
         cron = {
           enabled = true;
-          store = "/etc/clawd/cron-jobs.json";
+          store = "/var/lib/clawd/cron-jobs.json";
         };
         discord = {
           enabled = true;

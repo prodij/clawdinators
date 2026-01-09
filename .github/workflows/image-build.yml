@@ -26,6 +26,7 @@ jobs:
       - name: Cache Nix store
         uses: nix-community/cache-nix-action@v5
         with:
+          nix: false
           primary-key: nix-${{ runner.os }}-${{ hashFiles('**/flake.lock') }}
           restore-prefixes-first-match: |
             nix-${{ runner.os }}-
