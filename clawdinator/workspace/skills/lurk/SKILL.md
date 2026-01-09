@@ -14,18 +14,10 @@ Monitor Discord lurk channels and persist notable activity to shared memory.
 
 ## How to Run
 
-Use `discord.readMessages` to read recent messages from each lurk channel:
-- #help (1456457255208878100) — support fires
-- #general (1456350065223270435) — community pulse
-- #clawdributors (1458141495701012561) — contributor coordination
-- #messaging-infra (1458052766831480996) — transport integrations
-- #nix-packaging (1457003026412736537) — nix reproducibility
-- #architecture (1457810851556888833) — architecture talk
-- #clawdhub (1457886486044213411) — hub activity
-- #models (1456704705219661980) — model discussions
-- #skills (1456891440897724637) — skill showcases
-- #showcase (1456609488202105005) — user showcases
-- #security (1458861780976795782) — security discussion
+Use `discord.readMessages` to read recent messages from the **LURK channels** listed in `AGENTS.md`.
+
+- Do not read or write to any channel that is not explicitly listed there.
+- These channels are read-only (sendPolicy denies replies).
 
 ## What to Capture
 
@@ -45,7 +37,7 @@ Use `discord.readMessages` to read recent messages from each lurk channel:
 
 ## Output
 
-Append to `/memory/discord/YYYY-MM-DD.md`:
+Append to `/memory/discord/YYYY-MM-DD.md` using `memory-edit` (exclusive lock).
 
 ```markdown
 ## HH:MM #channel-name
@@ -63,4 +55,5 @@ Append to `/memory/discord/YYYY-MM-DD.md`:
 - Include timestamp and channel name.
 - Keep each entry to 1-2 lines.
 - Cross-reference GitHub issues when mentioned.
-- If nothing notable: don't write anything, reply HEARTBEAT_OK.
+- Never write to `/memory` using raw redirects (`>`, `>>`); always use `memory-edit`.
+- If nothing notable: don't write anything, reply `NO_NOTABLE_ACTIVITY`.

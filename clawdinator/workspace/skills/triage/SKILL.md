@@ -31,7 +31,7 @@ Read these files to understand current state:
 
 4. **Discord signals** (persisted by lurk skill):
    - `/memory/discord/YYYY-MM-DD.md` — today's channel activity
-   - `/memory/discord/YYYY-MM-DD.md` — yesterday's (for context)
+   - `/memory/discord/<yesterday>.md` — yesterday's (for context; use the previous date)
    - Cross-reference with GitHub issues where relevant
    - Multiple Discord reports of same issue = elevated priority
 
@@ -53,7 +53,7 @@ Read these files to understand current state:
 
 ## Output Format (SITREP)
 
-Write to `/memory/sitrep-latest.md`:
+Write to `/memory/sitrep-latest.md` using `memory-write` (exclusive lock):
 
 ```markdown
 # SITREP YYYY-MM-DDTHH:MMZ
@@ -98,4 +98,5 @@ If nothing needs attention: `HEARTBEAT_OK`
 - No markdown tables (use bullet lists).
 - If data is stale (>1hr old sync), note it.
 - If something is unclear, say so — don't guess.
+- Use `memory-read` for all reads from `/memory`.
 - Advisory only: don't take actions, just recommend.
