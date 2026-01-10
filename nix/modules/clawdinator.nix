@@ -522,6 +522,27 @@ in
         '';
     });
 
+    system.activationScripts.agenixInstall.text = lib.mkIf cfg.bootstrap.enable (
+      let
+        secretFiles = lib.concatMapStringsSep " "
+          (secret: "\"${secret.file}\"")
+          (lib.attrValues config.age.secrets);
+      in
+      lib.mkBefore ''
+        found=0
+        for file in ${secretFiles}; do
+          if [ -f "$file" ]; then
+            found=1
+            break
+          fi
+        done
+        if [ "$found" -eq 0 ]; then
+          echo "[agenix] no encrypted secrets present; skipping install"
+          exit 0
+        fi
+      ''
+    );
+
     systemd.tmpfiles.rules = [
       "d ${cfg.stateDir} 0750 ${cfg.user} ${cfg.group} - -"
       "d ${workspaceDir} 0750 ${cfg.user} ${cfg.group} - -"
