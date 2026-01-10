@@ -88,6 +88,7 @@ for _ in {1..120}; do
         --region "${region}" \
         --resources "${image_id}" \
         --tags "Key=Name,Value=${ami_name}" "Key=clawdinator,Value=true"
+      echo "AMI_ID=${image_id}" >&2
       echo "${image_id}"
       exit 0
       ;;

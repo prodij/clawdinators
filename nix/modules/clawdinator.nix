@@ -498,6 +498,30 @@ in
       '';
     };
 
+    system.activationScripts.agenixChown = lib.mkIf cfg.bootstrap.enable (lib.mkForce {
+      text =
+        let
+          secrets = lib.attrValues config.age.secrets;
+          chownLines = lib.concatMapStringsSep "\n"
+            (secret:
+              let
+                path = secret.path;
+                owner = if secret.owner == null then "root" else secret.owner;
+                group = if secret.group == null then "root" else secret.group;
+              in
+              lib.optionalString (path != null) ''
+                if [ -e "${path}" ]; then
+                  chown ${owner}:${group} "${path}"
+                fi
+              '')
+            secrets;
+        in
+        ''
+          set -euo pipefail
+          ${chownLines}
+        '';
+    });
+
     systemd.tmpfiles.rules = [
       "d ${cfg.stateDir} 0750 ${cfg.user} ${cfg.group} - -"
       "d ${workspaceDir} 0750 ${cfg.user} ${cfg.group} - -"
