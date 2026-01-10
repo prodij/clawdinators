@@ -2,8 +2,8 @@
   description = "CLAWDINATOR infra + Nix modules";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     nix-clawdbot.url = "github:clawdbot/nix-clawdbot"; # latest upstream
+    nixpkgs.follows = "nix-clawdbot/nixpkgs";
     agenix.url = "github:ryantm/agenix";
   };
 
@@ -13,83 +13,13 @@
       systems = [ "x86_64-linux" "aarch64-linux" ];
       forAllSystems = f: lib.genAttrs systems (system: f system);
       clawdbotOverlay = nix-clawdbot.overlays.default;
-      clawdbotShebangFix = final: prev:
-        let
-          removeScript = final.writeShellScript "remove-package-manager-field.sh" ''
-            exec ${final.bash}/bin/bash ${nix-clawdbot}/nix/scripts/remove-package-manager-field.sh "$@"
-          '';
-          promoteScript = final.writeShellScript "promote-pnpm-integrity.sh" ''
-            exec ${final.bash}/bin/bash ${nix-clawdbot}/nix/scripts/promote-pnpm-integrity.sh "$@"
-          '';
-          nodeGypWrapper = final.writeShellScript "node-gyp-wrapper.sh" ''
-            if [ -n "$REAL_NODE_GYP" ]; then
-              exec "$REAL_NODE_GYP" "$@"
-            fi
-            exec node-gyp "$@"
-          '';
-          stripAnsiSrc = ./nix/vendor/strip-ansi;
-        in {
-          clawdbot-gateway = prev.clawdbot-gateway.overrideAttrs (old: {
-            env = (old.env or {}) // {
-              PNPM_DEPS = old.pnpmDeps;
-              REMOVE_PACKAGE_MANAGER_FIELD_SH = removeScript;
-              PROMOTE_PNPM_INTEGRITY_SH = promoteScript;
-              NODE_GYP_WRAPPER_SH = nodeGypWrapper;
-            };
-            postPatch = ''
-              if [ -f package.json ]; then
-                ${removeScript} package.json
-              fi
-            '';
-            preBuild = ''
-              export HOME="$(mktemp -d)"
-              store_path="$(mktemp -d)"
-
-              fetcherVersion=$(cat "$PNPM_DEPS/.fetcher-version" 2>/dev/null || echo 1)
-              if [ "$fetcherVersion" -ge 3 ]; then
-                tar --zstd -xf "$PNPM_DEPS/pnpm-store.tar.zst" -C "$store_path"
-              else
-                cp -Tr "$PNPM_DEPS" "$store_path"
-              fi
-
-              chmod -R +w "$store_path"
-
-              # pnpm --ignore-scripts marks tarball deps as "not built" and offline install
-              # later refuses to use them; if a dep doesn't require build, promote it.
-              "${promoteScript}" "$store_path"
-
-              pnpm config set store-dir "$store_path"
-              pnpm config set package-import-method clone-or-copy
-              pnpm config set manage-package-manager-versions false
-
-              export REAL_NODE_GYP="$(command -v node-gyp)"
-              wrapper_dir="$(mktemp -d)"
-              install -Dm755 "$NODE_GYP_WRAPPER_SH" "$wrapper_dir/node-gyp"
-              export PATH="$wrapper_dir:$PATH"
-            '';
-            installPhase = ''
-              ${old.installPhase}
-              pi_dir="$(find "$out/lib/clawdbot/node_modules/.pnpm" -maxdepth 1 -type d -name "@mariozechner+pi-coding-agent@*" | head -n1)"
-              if [ -z "$pi_dir" ]; then
-                echo "pi-coding-agent directory not found for strip-ansi shim" >&2
-                exit 1
-              fi
-              target="$pi_dir/node_modules/strip-ansi"
-              rm -rf "$target"
-              mkdir -p "$(dirname "$target")"
-              mkdir -p "$target"
-              cp -R ${stripAnsiSrc}/* "$target"/
-            '';
-          });
-        };
     in
     {
       nixosModules.clawdinator = import ./nix/modules/clawdinator.nix;
       nixosModules.default = self.nixosModules.clawdinator;
 
       overlays.clawdbot = clawdbotOverlay;
-      overlays.clawdbotShebangFix = clawdbotShebangFix;
-      overlays.default = lib.composeExtensions clawdbotOverlay clawdbotShebangFix;
+      overlays.default = clawdbotOverlay;
 
       packages = forAllSystems (system:
         let
