@@ -32,6 +32,7 @@
         telegram = "interrupt";
         whatsapp = "interrupt";
       };
+      plugins.slots.memory = "none";
       agents.list = [
         {
           id = "main";

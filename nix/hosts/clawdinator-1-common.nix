@@ -120,6 +120,9 @@ in
             webchat = "queue";
           };
         };
+        plugins = {
+          slots.memory = "none";
+        };
         skills.allowBundled = [ "github" "clawdhub" ];
         cron = {
           enabled = true;
