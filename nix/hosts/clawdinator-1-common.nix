@@ -128,6 +128,7 @@ in
         };
         plugins = {
           slots.memory = "none";
+          entries.discord.enabled = true;
         };
         skills.allowBundled = [ "github" "clawdhub" ];
         cron = {

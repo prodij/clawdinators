@@ -111,11 +111,11 @@
         "nixpkgs": "nixpkgs_3"
       },
       "locked": {
-        "lastModified": 1769615423,
-        "narHash": "sha256-LB7zN3b6/tkwPyzObMSxWneMVGMJiApY+LVAJ6C9bpA=",
+        "lastModified": 1769721788,
+        "narHash": "sha256-6BnjiMjRDwGKzD9kjGDLwOOFWweL4l9cjekE8vJR7qE=",
         "owner": "moltbot",
         "repo": "nix-moltbot",
-        "rev": "d7ef1bc688596ed6113d4750e98ab87fc350af7c",
+        "rev": "8ff02aae168fc4d36195f9d95ffd1e9814cb5bfd",
         "type": "github"
       },
       "original": {
@@ -129,11 +129,11 @@
         "nixpkgs": "nixpkgs_2"
       },
       "locked": {
-        "lastModified": 1769518314,
-        "narHash": "sha256-r48vscCGwB4ujzNq7tnrvO6FpStbKr+45ap2m2skO4Q=",
+        "lastModified": 1769632524,
+        "narHash": "sha256-lDGYIwZUPXF+FoqE9fATn8sqDjfpM7Iy81KhHvqFjyw=",
         "owner": "moltbot",
         "repo": "nix-steipete-tools",
-        "rev": "9a9b3b97418e3705d325ab9aad5693ac1208c891",
+        "rev": "53ead4d5fd722020dddaede861745a32e39d284e",
         "type": "github"
       },
       "original": {

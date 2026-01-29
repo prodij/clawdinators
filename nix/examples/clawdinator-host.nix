@@ -37,6 +37,7 @@
         whatsapp = "interrupt";
       };
       plugins.slots.memory = "none";
+      plugins.entries.discord.enabled = true;
       agents.list = [
         {
           id = "main";
