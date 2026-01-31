@@ -1,6 +1,5 @@
 { lib, config, ... }:
 let
-  secretsPath = config.clawdinator.secretsPath;
   repoSeedsFile = ../../clawdinator/repos.tsv;
   repoSeedLines =
     lib.filter
@@ -20,56 +19,42 @@ let
   repoSeeds = map parseRepoSeed repoSeedLines;
 in
 {
-  options.clawdinator.secretsPath = lib.mkOption {
-    type = lib.types.str;
-    description = "Path to encrypted age secrets for CLAWDINATOR.";
-  };
-
   config = {
-    clawdinator.secretsPath = "/var/lib/clawd/nix-secrets";
-
-    age.identityPaths = [ "/etc/agenix/keys/clawdinator.agekey" ];
-    age.secrets."clawdinator-github-app.pem" = {
-      file = "${secretsPath}/clawdinator-github-app.pem.age";
-      owner = "clawdinator";
-      group = "clawdinator";
-    };
-    age.secrets."clawdinator-anthropic-api-key" = {
-      file = "${secretsPath}/clawdinator-anthropic-api-key.age";
-      owner = "clawdinator";
-      group = "clawdinator";
-    };
-    age.secrets."clawdinator-openai-api-key-peter-2" = {
-      file = "${secretsPath}/clawdinator-openai-api-key-peter-2.age";
-      owner = "clawdinator";
-      group = "clawdinator";
-    };
-    age.secrets."clawdinator-discord-token" = {
-      file = "${secretsPath}/clawdinator-discord-token.age";
-      owner = "clawdinator";
-      group = "clawdinator";
-    };
-
     services.clawdinator = {
       enable = true;
       instanceName = "CLAWDINATOR-1";
       memoryDir = "/memory";
       repoSeedSnapshotDir = "/var/lib/clawd/repo-seeds";
+
+      # Fetch secrets from AWS Secrets Manager at boot
+      secretsManager = {
+        enable = true;
+        region = "eu-central-1";
+        secrets = [
+          { name = "clawdinator/anthropic-api-key"; path = "/run/agenix/clawdinator-anthropic-api-key"; }
+          { name = "clawdinator/discord-token"; path = "/run/agenix/clawdinator-discord-token"; }
+          { name = "clawdinator/github-app-pem"; path = "/run/agenix/clawdinator-github-app.pem"; }
+        ];
+      };
+
+      # Bootstrap repo seeds from S3 (secrets handled by secretsManager)
       bootstrap = {
         enable = true;
         s3Bucket = "clawdinator-images-eu1-20260107165216";
         s3Prefix = "bootstrap/clawdinator-1";
         region = "eu-central-1";
-        secretsDir = "/var/lib/clawd/nix-secrets";
+        secretsDir = "/var/lib/clawd/nix-secrets";  # Legacy, not used with secretsManager
         repoSeedsDir = "/var/lib/clawd/repo-seeds";
-        ageKeyPath = "/etc/agenix/keys/clawdinator.agekey";
+        ageKeyPath = "/etc/agenix/keys/clawdinator.agekey";  # Legacy, not used with secretsManager
       };
+
       memoryEfs = {
         enable = true;
         fileSystemId = "fs-0e7920726c2965a88";
         region = "eu-central-1";
         mountPoint = "/memory";
       };
+
       repoSeeds = repoSeeds;
 
       config = {
@@ -86,11 +71,10 @@ in
           skipBootstrap = true;
           models = {
             "anthropic/claude-opus-4-5" = { alias = "Opus"; };
-            "openai/gpt-5-codex" = { alias = "Codex"; };
           };
           model = {
             primary = "anthropic/claude-opus-4-5";
-            fallbacks = [ "openai/gpt-5-codex" ];
+            # No fallbacks - using Anthropic only
           };
         };
         agents.list = [
@@ -165,9 +149,10 @@ in
         };
       };
 
+      # Secret file paths (populated by secretsManager service)
       anthropicApiKeyFile = "/run/agenix/clawdinator-anthropic-api-key";
-      openaiApiKeyFile = "/run/agenix/clawdinator-openai-api-key-peter-2";
       discordTokenFile = "/run/agenix/clawdinator-discord-token";
+      # openaiApiKeyFile not set - Anthropic only
 
       githubApp = {
         enable = true;

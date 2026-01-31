@@ -198,6 +198,52 @@ resource "aws_iam_role_policy" "instance_bootstrap" {
   policy = data.aws_iam_policy_document.instance_bootstrap.json
 }
 
+# -----------------------------------------------------------------------------
+# Secrets Manager - stores secrets fetched by EC2 at boot
+# -----------------------------------------------------------------------------
+
+resource "aws_secretsmanager_secret" "anthropic_api_key" {
+  name                    = "clawdinator/anthropic-api-key"
+  description             = "Anthropic API key for CLAWDINATOR"
+  recovery_window_in_days = 7
+  tags                    = local.tags
+}
+
+resource "aws_secretsmanager_secret" "discord_token" {
+  name                    = "clawdinator/discord-token"
+  description             = "Discord bot token for CLAWDINATOR"
+  recovery_window_in_days = 7
+  tags                    = local.tags
+}
+
+resource "aws_secretsmanager_secret" "github_app_pem" {
+  name                    = "clawdinator/github-app-pem"
+  description             = "GitHub App private key for CLAWDINATOR"
+  recovery_window_in_days = 7
+  tags                    = local.tags
+}
+
+# IAM policy for EC2 to read secrets
+data "aws_iam_policy_document" "instance_secrets" {
+  statement {
+    sid = "GetSecrets"
+    actions = [
+      "secretsmanager:GetSecretValue"
+    ]
+    resources = [
+      aws_secretsmanager_secret.anthropic_api_key.arn,
+      aws_secretsmanager_secret.discord_token.arn,
+      aws_secretsmanager_secret.github_app_pem.arn,
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "instance_secrets" {
+  name   = "clawdinator-secrets"
+  role   = aws_iam_role.instance.id
+  policy = data.aws_iam_policy_document.instance_secrets.json
+}
+
 resource "aws_iam_instance_profile" "instance" {
   name = "clawdinator-instance"
   role = aws_iam_role.instance.name

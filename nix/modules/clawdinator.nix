@@ -65,6 +65,46 @@ let
     chmod 0640 "$token_env"
   '';
 
+  secretsManagerScript = pkgs.writeShellScript "clawdinator-fetch-secrets" ''
+    set -euo pipefail
+
+    secrets_dir="${cfg.secretsManager.secretsDir}"
+    region="${cfg.secretsManager.region}"
+
+    mkdir -p "$secrets_dir"
+    chmod 0750 "$secrets_dir"
+    chown root:${cfg.group} "$secrets_dir"
+
+    fetch_secret() {
+      local name="$1"
+      local path="$2"
+
+      echo "Fetching secret: $name -> $path"
+      local value
+      value="$(aws secretsmanager get-secret-value \
+        --region "$region" \
+        --secret-id "$name" \
+        --query 'SecretString' \
+        --output text)"
+
+      if [ -z "$value" ]; then
+        echo "ERROR: Failed to fetch secret $name" >&2
+        return 1
+      fi
+
+      printf '%s' "$value" > "$path"
+      chmod 0400 "$path"
+      chown ${cfg.user}:${cfg.group} "$path"
+      echo "  OK: $path"
+    }
+
+    ${lib.concatMapStringsSep "\n"
+      (secret: "fetch_secret \"${secret.name}\" \"${secret.path}\"")
+      cfg.secretsManager.secrets}
+
+    echo "All secrets fetched successfully"
+  '';
+
   defaultPackage =
     if pkgs ? openclaw-gateway
     then pkgs.openclaw-gateway
@@ -216,8 +256,45 @@ in
       description = "Optional path to a preseeded repo snapshot (directory of repos). When set, no network cloning happens at boot.";
     };
 
+    secretsManager = {
+      enable = mkEnableOption "Fetch secrets from AWS Secrets Manager at boot";
+
+      region = mkOption {
+        type = types.str;
+        default = "eu-central-1";
+        description = "AWS region for Secrets Manager.";
+      };
+
+      secrets = mkOption {
+        type = types.listOf (types.submodule ({ ... }: {
+          options = {
+            name = mkOption {
+              type = types.str;
+              description = "Secret name in AWS Secrets Manager (e.g., clawdinator/anthropic-api-key).";
+            };
+            path = mkOption {
+              type = types.str;
+              description = "Destination path for the secret (e.g., /run/agenix/clawdinator-anthropic-api-key).";
+            };
+          };
+        }));
+        default = [
+          { name = "clawdinator/anthropic-api-key"; path = "/run/agenix/clawdinator-anthropic-api-key"; }
+          { name = "clawdinator/discord-token"; path = "/run/agenix/clawdinator-discord-token"; }
+          { name = "clawdinator/github-app-pem"; path = "/run/agenix/clawdinator-github-app.pem"; }
+        ];
+        description = "List of secrets to fetch from Secrets Manager.";
+      };
+
+      secretsDir = mkOption {
+        type = types.str;
+        default = "/run/agenix";
+        description = "Directory to store fetched secrets (should be tmpfs).";
+      };
+    };
+
     bootstrap = {
-      enable = mkEnableOption "Bootstrap secrets + repo seeds from S3";
+      enable = mkEnableOption "Bootstrap repo seeds from S3 (secrets now via secretsManager)";
 
       s3Bucket = mkOption {
         type = types.str;
@@ -572,12 +649,14 @@ in
       wantedBy = [ "multi-user.target" ];
       after =
         [ "network.target" ]
+        ++ lib.optional cfg.secretsManager.enable "clawdinator-secrets.service"
         ++ lib.optional cfg.bootstrap.enable "clawdinator-bootstrap.service"
         ++ lib.optional cfg.bootstrap.enable "clawdinator-agenix.service"
         ++ lib.optional cfg.githubApp.enable "clawdinator-github-app-token.service"
         ++ lib.optional (cfg.repoSeedSnapshotDir != null) "clawdinator-repo-seed.service";
       wants =
-        lib.optional cfg.bootstrap.enable "clawdinator-bootstrap.service"
+        lib.optional cfg.secretsManager.enable "clawdinator-secrets.service"
+        ++ lib.optional cfg.bootstrap.enable "clawdinator-bootstrap.service"
         ++ lib.optional cfg.bootstrap.enable "clawdinator-agenix.service"
         ++ lib.optional cfg.githubApp.enable "clawdinator-github-app-token.service"
         ++ lib.optional (cfg.repoSeedSnapshotDir != null) "clawdinator-repo-seed.service";
@@ -633,11 +712,30 @@ in
       script = "${pkgs.bash}/bin/bash ${../../scripts/seed-repos-from-snapshot.sh} ${cfg.repoSeedSnapshotDir} ${repoSeedBaseDir} ${cfg.user} ${cfg.group}";
     };
 
-    systemd.services.clawdinator-bootstrap = lib.mkIf cfg.bootstrap.enable {
-      description = "CLAWDINATOR bootstrap (S3 secrets + repo seeds)";
+    systemd.services.clawdinator-secrets = lib.mkIf cfg.secretsManager.enable {
+      description = "CLAWDINATOR secrets (fetch from AWS Secrets Manager)";
       wantedBy = [ "multi-user.target" ];
       after = [ "network-online.target" ];
       wants = [ "network-online.target" ];
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+      };
+      environment = {
+        AWS_REGION = cfg.secretsManager.region;
+        AWS_DEFAULT_REGION = cfg.secretsManager.region;
+      };
+      path = [ pkgs.awscli2 pkgs.coreutils ];
+      script = "${secretsManagerScript}";
+    };
+
+    systemd.services.clawdinator-bootstrap = lib.mkIf cfg.bootstrap.enable {
+      description = "CLAWDINATOR bootstrap (S3 repo seeds)";
+      wantedBy = [ "multi-user.target" ];
+      after = [ "network-online.target" ]
+        ++ lib.optional cfg.secretsManager.enable "clawdinator-secrets.service";
+      wants = [ "network-online.target" ]
+        ++ lib.optional cfg.secretsManager.enable "clawdinator-secrets.service";
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
@@ -714,8 +812,10 @@ in
       description = "CLAWDINATOR GitHub App token refresh";
       wantedBy = [ "multi-user.target" ];
       before = [ "clawdinator.service" ];
-      after = [ "network-online.target" ];
-      wants = [ "network-online.target" ];
+      after = [ "network-online.target" ]
+        ++ lib.optional cfg.secretsManager.enable "clawdinator-secrets.service";
+      wants = [ "network-online.target" ]
+        ++ lib.optional cfg.secretsManager.enable "clawdinator-secrets.service";
       serviceConfig = {
         Type = "oneshot";
         User = "root";

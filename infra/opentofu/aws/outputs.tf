@@ -47,3 +47,12 @@ output "efs_security_group_id" {
   value       = aws_security_group.efs.id
   description = "Security group ID for EFS."
 }
+
+output "secret_arns" {
+  value = {
+    anthropic_api_key = aws_secretsmanager_secret.anthropic_api_key.arn
+    discord_token     = aws_secretsmanager_secret.discord_token.arn
+    github_app_pem    = aws_secretsmanager_secret.github_app_pem.arn
+  }
+  description = "ARNs of Secrets Manager secrets. Set values with: aws secretsmanager put-secret-value --secret-id <arn> --secret-string <value>"
+}
